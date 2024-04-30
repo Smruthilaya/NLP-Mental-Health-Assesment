@@ -1,0 +1,63 @@
+# Function to preprocess the data
+def preprocess_data(file_name):
+    path = file_name + '.txt'
+    data = pd.read_csv(path, sep=';')
+    happiness_labels = []
+    for i in range(len(data.emotion)):
+        if data['emotion'][i] in ['joy', 'love', 'surprise']:
+            happiness_labels.append(1)  # Assigning 1 for happy emotions
+        else:
+            happiness_labels.append(0)  # Assigning 0 for sad emotions
+    data['happiness_labels'] = happiness_labels
+    return data
+
+# Defining the model architecture
+model_url = "https://tfhub.dev/google/tf2-preview/gnews-swivel-20dim/1"
+embedding_layer = hub.KerasLayer(model_url, output_shape=[20], input_shape=[],
+                                 dtype=tf.string, trainable=True)
+model = tf.keras.Sequential([
+    embedding_layer,
+    tf.keras.layers.Dense(16, activation='relu'),
+    tf.keras.layers.Dense(1)
+])
+# Compiling the model
+model.compile(optimizer='adam',
+              loss=tf.losses.BinaryCrossentropy(from_logits=True),
+              metrics=[tf.metrics.BinaryAccuracy(threshold=0.0, name='accuracy')])
+# Preprocessing validation data
+validation_data = preprocess_data('val')
+# Training the model
+history = model.fit(train_copy.text,
+                    train_copy.happiness_labels,
+                    epochs=40,
+                    batch_size=512,
+                    validation_data=(validation_data.text, validation_data.happiness_labels),
+                    verbose=0)
+
+# Function to postprocess predictions
+def postprocess_predictions(predictions):
+    pred_range = predictions.max() - predictions.min()
+    probab_scores = []
+    for pred in predictions:
+        probab_scores.append((pred - predictions.min()) * 100 / pred_range)
+    return np.mean(probab_scores)
+
+# Getting user input for mental health assessment
+user_answers = []
+user_answers.append(input('How was your recent experience at work/school? '))
+user_answers.append(input('What do you enjoy doing in your free time? How does it make you feel? '))
+user_answers.append(input('How do you cope with setbacks in life? '))
+user_answers.append(input('Have there been any changes in your performance recently? '))
+user_answers.append(input('Overall, how would you describe your current life situation? '))
+
+# Predicting mental health score based on user input
+user_predictions = model.predict(user_answers)
+mental_health_score = postprocess_predictions(user_predictions)
+print('Your mental health score is:', mental_health_score)
+
+# Providing interpretation based on the mental health score
+if mental_health_score < 25:
+    print("It seems like you're going through a tough time. Remember, it's okay to seek help and support from others.")
+else:
+    print("Your mental health seems to be in good shape. Keep up the positive attitude and take care of yourself!")
+
